@@ -189,6 +189,7 @@ function renderBoard() {
       boardEl.appendChild(cell);
     }
   }
+  addDragDropListeners();
 }
 
 const piecesEl = document.getElementById('pieces');
@@ -199,9 +200,12 @@ function renderPieces(pieces) {
     pieces.forEach((piece, i) => {
         const pieceDiv = document.createElement('div');
         pieceDiv.classList.add('piece');
+        pieceDiv.draggable = true;
+        pieceDiv.dataset.pieceIndex = i;
 
         piece.forEach(row => {
             const rowDiv = document.createElement('div');
+            rowDiv.style.display = 'flex';
             row.forEach(cell => {
                 const block = document.createElement('div');
                 block.classList.add('block');
@@ -215,6 +219,11 @@ function renderPieces(pieces) {
             selectedPiece = piece;
             document.querySelectorAll('.piece').forEach(p => p.classList.remove('selected'));
             pieceDiv.classList.add('selected');
+        });
+
+        pieceDiv.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('text/plain', i.toString());
+            selectedPiece = piece;
         });
 
         piecesEl.appendChild(pieceDiv);
@@ -248,4 +257,28 @@ function handleClick(e) {
     });
 
     selectedPiece = null;
+}
+
+
+function addDragDropListeners() {
+    document.querySelectorAll('.cell').forEach(cell => {
+        cell.addEventListener('dragover', e => {
+            e.preventDefault();
+        });
+
+        cell.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const pieceIndex = parseInt(e.dataTransfer.getData('text/plain'));
+            const row = parseInt(e.target.dataset.row);
+            const col = parseInt(e.target.dataset.col);
+
+            if (selectedPiece) {
+                window.resolvePlayerMove({
+                    piece: selectedPiece,
+                    row,
+                    col
+                });
+            }
+        });
+    });
 }
