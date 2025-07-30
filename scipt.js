@@ -1,3 +1,4 @@
+const TILE_SIZE = 44;
 const board = Array(8).fill(0).map(() => Array(8).fill(0));
 
 const shapes = [
@@ -26,10 +27,18 @@ function runGame() {
     waitForPlayerMove().then(move => {
         if (!move) return;
 
-        const { piece, row, col } = move;
+        const { piece, mouseX, mouseY, offsetX, offsetY } = move;
 
-        if (canPlace(board, piece, row, col)) {
-            placePiece(board, piece, row, col);
+        
+        const boardRect = boardEl.getBoundingClientRect();
+        const relativeX = mouseX - boardRect.left;
+        const relativeY = mouseY - boardRect.top;
+        
+        const startCol = Math.floor(relativeX / TILE_SIZE) - Math.floor(offsetX / TILE_SIZE);
+        const startRow = Math.floor(relativeY / TILE_SIZE) - Math.floor(offsetY / TILE_SIZE);
+
+        if (canPlace(board, piece, startRow, startCol)) {
+            placePiece(board, piece, startRow, startCol);
             clearRow();
             clearCol();
             currentPieces = currentPieces.filter(p => p !== piece);
@@ -176,6 +185,22 @@ function placePiece(board, shape, startRow, startCol) {
     }
 }
 
+function placePieceAtMouse(board, shape, mouseX, mouseY, grabbedTileOffsetY, grabbedTileOffsetX) {
+    const mouseBoardX = Math.floor(mouseX / TILE_SIZE);
+    const mouseBoardY = Math.floor(mouseY / TILE_SIZE);
+
+    const startCol = mouseBoardX - grabbedTileOffsetX;
+    const startRow = mouseBoardY - grabbedTileOffsetY;
+
+    for (let r = 0; r < shape.length; r++) {
+        for (let c = 0; c < shape[0].length; c++) {
+            if (shape[r][c] === 1) {
+                board[startRow + r][startCol + c] = 1;
+            }
+        }
+    }
+}
+
 function renderBoard() {
   boardEl.innerHTML = '';
   for (let r = 0; r < 8; r++) {
@@ -224,6 +249,11 @@ function renderPieces(pieces) {
         pieceDiv.addEventListener('dragstart', (e) => {
             e.dataTransfer.setData('text/plain', i.toString());
             selectedPiece = piece;
+            
+            // Calculate offset from mouse to piece origin
+            const rect = pieceDiv.getBoundingClientRect();
+            window.dragOffsetX = e.clientX - rect.left;
+            window.dragOffsetY = e.clientY - rect.top;
         });
 
         piecesEl.appendChild(pieceDiv);
@@ -269,16 +299,21 @@ function addDragDropListeners() {
         cell.addEventListener('drop', (e) => {
             e.preventDefault();
             const pieceIndex = parseInt(e.dataTransfer.getData('text/plain'));
-            const row = parseInt(e.target.dataset.row);
-            const col = parseInt(e.target.dataset.col);
-
+            
             if (selectedPiece) {
+                // Use mouse coordinates for precise placement
+                const mouseX = e.clientX;
+                const mouseY = e.clientY;
+                
                 window.resolvePlayerMove({
                     piece: selectedPiece,
-                    row,
-                    col
+                    mouseX: mouseX,
+                    mouseY: mouseY,
+                    offsetX: window.dragOffsetX,
+                    offsetY: window.dragOffsetY
                 });
             }
         });
     });
 }
+
