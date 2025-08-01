@@ -1,4 +1,4 @@
-const TILE_SIZE = 44;
+const TILE_SIZE = 42;
 const board = Array(8).fill(0).map(() => Array(8).fill(0));
 
 const shapes = [
@@ -20,8 +20,11 @@ const scoreEl = document.getElementById('score');
 let score = 0;
 
 function runGame() {
-    currentPieces = new3();  
-    renderPieces(currentPieces); 
+    if (currentPieces.length < 1) {
+        currentPieces = new3(); 
+        renderPieces(currentPieces); 
+    }
+ 
     renderBoard();
 
     waitForPlayerMove().then(move => {
@@ -39,13 +42,20 @@ function runGame() {
 
         if (canPlace(board, piece, startRow, startCol)) {
             placePiece(board, piece, startRow, startCol);
-            clearRow();
-            clearCol();
+            let clearedRows = clearRow();
+            let clearedCols = clearCol();
+            let totalCleared = clearedRows + clearedCols;
+            score = calculateScore(piece, totalCleared);
+            scoreEl.textContent = score;
+
             currentPieces = currentPieces.filter(p => p !== piece);
 
             
+            renderPieces(currentPieces);
+            
             if (currentPieces.length === 0) {
                 currentPieces = new3();
+                renderPieces(currentPieces);
             }
 
             if (checkGameOver(board, currentPieces)) {
@@ -56,7 +66,7 @@ function runGame() {
 
             runGame(); 
         } else {
-            alert("Invalid placement!");
+            
             runGame(); 
         }
     });
@@ -75,6 +85,7 @@ function new3() {
     let piece3 = shapes[Math.floor(Math.random() * shapes.length)];
     return [piece1, piece2, piece3]
 }
+
 
 
 function canPlace(board, shape, startRow, startCol) {
@@ -106,6 +117,7 @@ function canPlace(board, shape, startRow, startCol) {
 }
 
 function clearRow() {
+    let numCleared = 0;
     const clearedRows = []
     for (let r=0; r < board.length; r++) {
         let isFull = 0;
@@ -118,6 +130,7 @@ function clearRow() {
 
         if( isFull === board[0].length) {
             clearedRows.push(r)
+            numCleared++
         }
     }
 
@@ -127,10 +140,12 @@ function clearRow() {
             board[row][c] = 0
         }
     })
+    return numCleared
 
 }
 
 function clearCol() {
+    let numCleared = 0;
     const clearedCols = []
     for (let c=0; c < board.length; c++) {
         let isFull = 0;
@@ -143,6 +158,7 @@ function clearCol() {
 
         if( isFull === board[0].length) {
             clearedCols.push(c)
+            numCleared++
         }
     }
 
@@ -152,7 +168,7 @@ function clearCol() {
             board[r][col] = 0
         }
     })
-
+    return numCleared
 }
 
 
@@ -189,8 +205,8 @@ function placePieceAtMouse(board, shape, mouseX, mouseY, grabbedTileOffsetY, gra
     const mouseBoardX = Math.floor(mouseX / TILE_SIZE);
     const mouseBoardY = Math.floor(mouseY / TILE_SIZE);
 
-    const startCol = mouseBoardX - grabbedTileOffsetX;
-    const startRow = mouseBoardY - grabbedTileOffsetY;
+    const startCol = mouseBoardX - Math.floor(grabbedTileOffsetX / TILE_SIZE);
+    const startRow = mouseBoardY - Math.floor(grabbedTileOffsetY / TILE_SIZE);
 
     for (let r = 0; r < shape.length; r++) {
         for (let c = 0; c < shape[0].length; c++) {
@@ -250,10 +266,29 @@ function renderPieces(pieces) {
             e.dataTransfer.setData('text/plain', i.toString());
             selectedPiece = piece;
             
-            // Calculate offset from mouse to piece origin
             const rect = pieceDiv.getBoundingClientRect();
-            window.dragOffsetX = e.clientX - rect.left;
-            window.dragOffsetY = e.clientY - rect.top;
+            dragOffsetX = e.clientX - rect.left;
+            dragOffsetY = e.clientY - rect.top;
+            
+            
+            const dragImage = pieceDiv.cloneNode(true);
+            dragImage.style.position = 'absolute';
+            dragImage.style.top = '-1000px';
+            dragImage.style.left = '-1000px';
+            dragImage.style.opacity = '0.8';
+            dragImage.style.pointerEvents = 'none';
+            document.body.appendChild(dragImage);
+            
+            e.dataTransfer.setDragImage(dragImage, dragOffsetX, dragOffsetY);
+            
+            
+            setTimeout(() => {
+                document.body.removeChild(dragImage);
+            }, 0);
+        });
+
+        pieceDiv.addEventListener('dragend', () => {
+            selectedPiece = null;
         });
 
         piecesEl.appendChild(pieceDiv);
@@ -262,10 +297,11 @@ function renderPieces(pieces) {
 
 function showGameOver() {
     alert("Game Over!");
-    // show restart button, score, etc
 }
 
 let selectedPiece = null;
+let dragOffsetX = 0;
+let dragOffsetY = 0;
 
 document.addEventListener('DOMContentLoaded', () => {
     runGame();
@@ -301,7 +337,6 @@ function addDragDropListeners() {
             const pieceIndex = parseInt(e.dataTransfer.getData('text/plain'));
             
             if (selectedPiece) {
-                // Use mouse coordinates for precise placement
                 const mouseX = e.clientX;
                 const mouseY = e.clientY;
                 
@@ -309,11 +344,24 @@ function addDragDropListeners() {
                     piece: selectedPiece,
                     mouseX: mouseX,
                     mouseY: mouseY,
-                    offsetX: window.dragOffsetX,
-                    offsetY: window.dragOffsetY
+                    offsetX: dragOffsetX,
+                    offsetY: dragOffsetY
                 });
             }
         });
     });
 }
 
+function calculateScore(piece, linesCleared) {
+    let pieceSize = 0;
+    for (let r = 0; r < piece.length; r++){
+        for (let c = 0; c < piece[0].length; c++){
+            if (piece[r][c] === 1){
+                pieceSize++
+            }
+        }
+    }
+    let bonus = 10 * linesCleared;
+    score += pieceSize + bonus;
+    return score
+}

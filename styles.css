@@ -1,6 +1,6 @@
 body {
     font-family: sans-serif;
-    background:#f3f3f3 ;
+    background:#5979c4 ;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -14,25 +14,21 @@ body {
     gap: 20px
 }
 
-.scoreboard {
-    font-size: 24px;
-    font-weight: bold;
-}
 
 .board {
     display: grid;
     grid-template-columns: repeat(8, 40px);
     grid-template-rows: repeat(8, 40px);
-    gap: 4px;
-    border: 2px solid #444;
+    gap: 2px;
+    border: 2px solid #000000;
     padding: 10px;
-    background: #f0f0f0;
+    background: #22263c;
 }
 
 .cell {
     width: 40px;
     height: 40px;
-    background-color: #ddd;
+    background-color: #34395b;
     border-radius: 4px;
     transition: background-color 0.2s ease;
     cursor: pointer;
@@ -41,6 +37,8 @@ body {
 .cell.filled {
     background-color: #4caf50;
 }
+
+
 
 .blocks {
     margin-top: 20px;
@@ -60,11 +58,16 @@ body {
     padding: 5px;
     background: transparent;
     border-radius: 4px;
+    user-select: none;
+}
+
+.piece:active {
+    transform: scale(0.95);
 }
 
 .piece.selected {
     border-color: #2196f3;
-    background: #e3f2fd;
+    background: transparent;
 }
 
 .block {
@@ -82,4 +85,5 @@ body {
 #score {
     font-size: 24px;
     font-weight: bold;
+    color: white;
 }
