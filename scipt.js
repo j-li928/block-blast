@@ -23,7 +23,6 @@ const pieceColors = ['#FF6B6B', '#6BCB77', '#4D96FF', '#FFD93D', '#A66DD4', '#FF
 
 
 let currentPieces = [];
-let currentPieceColors = [];
 let gameRunning = true;
 const boardEl = document.getElementById('board');
 const scoreEl = document.getElementById('score');
@@ -33,9 +32,23 @@ function runGame() {
     if (currentPieces.length < 1) {
         currentPieces = new3(); 
         renderPieces(currentPieces); 
+        
+
+        if (checkGameOver(board, currentPieces)) {
+            gameRunning = false;
+            showGameOver();
+            return;
+        }
     }
  
     renderBoard();
+
+
+    if (checkGameOver(board, currentPieces)) {
+        gameRunning = false;
+        showGameOver();
+        return;
+    }
 
     waitForPlayerMove().then(move => {
         if (!move) return;
@@ -65,34 +78,48 @@ function runGame() {
 
                 animateScore(startScore, score, 800);
 
-                const pieceIndex = currentPieces.indexOf(piece);
-                currentPieces = currentPieces.filter(p => p !== piece);
-                currentPieceColors.splice(pieceIndex, 1);
 
-                renderBoard();
-                renderPieces(currentPieces);
                 
-                if (currentPieces.length === 0) {
+                renderBoard();
+                
+                
+                currentPieces = currentPieces.filter(p => p !== piece);
+                
+                
+                const pieceElements = document.querySelectorAll('.piece');
+                for (let i = 0; i < pieceElements.length; i++) {
+                    const element = pieceElements[i];
+                    if (element.dataset.piece === JSON.stringify(piece)) {
+                        element.style.display = 'none';
+                        break;
+                    }
+                }
+                
+                
+                const visiblePieces = document.querySelectorAll('.piece:not([style*="display: none"])').length;
+                
+                if (visiblePieces === 0) {
+                    
                     currentPieces = new3();
                     renderPieces(currentPieces);
-                }
-
-                if (checkGameOver(board, currentPieces)) {
-                    gameRunning = false;
-                    showGameOver();
-                    return;
+                    
+                   
+                    if (checkGameOver(board, currentPieces)) {
+                        gameRunning = false;
+                        showGameOver();
+                        return;
+                    }
                 }
 
                 runGame(); 
             }, 300);
-        } else {
+        }
             if (checkGameOver(board, currentPieces)) {
                 gameRunning = false;
                 showGameOver();
                 return;
             }
             runGame(); 
-        }
     });
 }
 
@@ -107,12 +134,6 @@ function new3() {
     let piece1 = shapes[Math.floor(Math.random() * shapes.length)];
     let piece2 = shapes[Math.floor(Math.random() * shapes.length)];
     let piece3 = shapes[Math.floor(Math.random() * shapes.length)];
-    
-    currentPieceColors = [
-        pieceColors[Math.floor(Math.random() * pieceColors.length)],
-        pieceColors[Math.floor(Math.random() * pieceColors.length)],
-        pieceColors[Math.floor(Math.random() * pieceColors.length)]
-    ];
     
     return [piece1, piece2, piece3]
 }
@@ -223,7 +244,7 @@ function checkGameOver(board, currentPieces) {
             }
         }
     }
-    return true; 
+    return true;
 }
 
 
@@ -280,8 +301,9 @@ function renderBoard() {
         if (boardColors[r][c]) {
           cell.style.backgroundColor = boardColors[r][c];
         } else {
-          cell.style.backgroundColor = '#666'; // fallback color
+          cell.style.backgroundColor = '#666'; 
         }
+        cell.style.boxShadow = 'inset 0 1px 2px rgba(0,0,0,0.4), inset 0 -1px 1px rgba(255,255,255,0.2)';
       }
       cell.dataset.row = r;
       cell.dataset.col = c;
@@ -298,13 +320,15 @@ function renderPieces(pieces) {
     piecesEl.innerHTML = ''; 
 
     pieces.forEach((piece, i) => {
-        const pieceDiv = document.createElement('div');
-        pieceDiv.classList.add('piece');
-        pieceDiv.draggable = true;
-        pieceDiv.dataset.pieceIndex = i;
+        const pieceElement = document.createElement('div');
+        pieceElement.id = `piece-${i}`;
+        pieceElement.classList.add('piece');
+        pieceElement.classList.add(`piece${i + 1}`);
+        pieceElement.dataset.pieceIndex = i;
+        pieceElement.dataset.piece = JSON.stringify(piece);
 
-        const pieceColor = currentPieceColors[i] || pieceColors[Math.floor(Math.random() * pieceColors.length)];
-        pieceDiv.dataset.color = pieceColor;
+        const pieceColor = pieceColors[Math.floor(Math.random() * pieceColors.length)];
+        pieceElement.dataset.color = pieceColor;
 
         piece.forEach(row => {
             const rowDiv = document.createElement('div');
@@ -314,51 +338,60 @@ function renderPieces(pieces) {
                 block.classList.add('block');
                 if (cell === 1) {
                     block.style.backgroundColor = pieceColor;
+                    block.style.boxShadow = 'inset 0 1px 2px rgba(0,0,0,0.6), inset 0 -1px 1px rgba(255,255,255,0.6)';
                 }
                 rowDiv.appendChild(block);
             });
-            pieceDiv.appendChild(rowDiv);
+            pieceElement.appendChild(rowDiv);
         });
 
-        pieceDiv.addEventListener('click', () => {
+        pieceElement.addEventListener('click', () => {
             selectedPiece = piece;
             document.querySelectorAll('.piece').forEach(p => p.classList.remove('selected'));
-            pieceDiv.classList.add('selected');
+            pieceElement.classList.add('selected');
         });
 
-        pieceDiv.addEventListener('dragstart', (e) => {
-            e.dataTransfer.setData('text/plain', i.toString());
+        pieceElement.addEventListener('mousedown', (e) => {
             selectedPiece = piece;
+            window.selectedPieceColor = pieceColor;
             
-            const rect = pieceDiv.getBoundingClientRect();
+            const rect = pieceElement.getBoundingClientRect();
             dragOffsetX = e.clientX - rect.left;
             dragOffsetY = e.clientY - rect.top;
             
-            window.selectedPieceColor = pieceColor;
+
+            pieceElement.style.position = 'fixed';
+            pieceElement.style.left = rect.left + 'px';
+            pieceElement.style.top = rect.top + 'px';
+            pieceElement.style.zIndex = '1000';
+            pieceElement.style.pointerEvents = 'none';
             
+            const moveHandler = (e) => {
+                pieceElement.style.left = (e.clientX - dragOffsetX) + 'px';
+                pieceElement.style.top = (e.clientY - dragOffsetY) + 'px';
+            };
             
-            const dragImage = pieceDiv.cloneNode(true);
-            dragImage.style.position = 'absolute';
-            dragImage.style.top = '-1000px';
-            dragImage.style.left = '-1000px';
-            dragImage.style.opacity = '0.8';
-            dragImage.style.pointerEvents = 'none';
-            document.body.appendChild(dragImage);
+            const upHandler = () => {
+                pieceElement.style.position = '';
+                pieceElement.style.zIndex = '';
+                pieceElement.style.pointerEvents = '';
+                pieceElement.style.left = '';
+                pieceElement.style.top = '';
+                
+                document.removeEventListener('mousemove', moveHandler);
+                document.removeEventListener('mouseup', upHandler);
+            };
             
-            e.dataTransfer.setDragImage(dragImage, dragOffsetX, dragOffsetY);
-            
-            
-            setTimeout(() => {
-                document.body.removeChild(dragImage);
-            }, 0);
+            document.addEventListener('mousemove', moveHandler);
+            document.addEventListener('mouseup', upHandler);
         });
 
-        pieceDiv.addEventListener('dragend', () => {
+        pieceElement.addEventListener('dragend', () => {
             selectedPiece = null;
             window.selectedPieceColor = null;
         });
 
-        piecesEl.appendChild(pieceDiv);
+        piecesEl.appendChild(pieceElement);
     });
 }
 
@@ -405,14 +438,7 @@ function handleClick(e) {
 
 function addDragDropListeners() {
     document.querySelectorAll('.cell').forEach(cell => {
-        cell.addEventListener('dragover', e => {
-            e.preventDefault();
-        });
-
-        cell.addEventListener('drop', (e) => {
-            e.preventDefault();
-            const pieceIndex = parseInt(e.dataTransfer.getData('text/plain'));
-            
+        cell.addEventListener('mouseup', (e) => {
             if (selectedPiece) {
                 const mouseX = e.clientX;
                 const mouseY = e.clientY;
