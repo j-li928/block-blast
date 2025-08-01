@@ -1,5 +1,6 @@
 const TILE_SIZE = 42;
 const board = Array(8).fill(0).map(() => Array(8).fill(0));
+const boardColors = Array(8).fill(0).map(() => Array(8).fill(null));
 
 const shapes = [
     [[1, 1, 1, 1, 1]],
@@ -18,8 +19,11 @@ const shapes = [
         [1, 0, 0, 0],
     ]
 ];
+const pieceColors = ['#FF6B6B', '#6BCB77', '#4D96FF', '#FFD93D', '#A66DD4', '#FF8E00'];
+
 
 let currentPieces = [];
+let currentPieceColors = [];
 let gameRunning = true;
 const boardEl = document.getElementById('board');
 const scoreEl = document.getElementById('score');
@@ -47,16 +51,23 @@ function runGame() {
         const startRow = Math.floor(relativeY / TILE_SIZE) - Math.floor(offsetY / TILE_SIZE);
 
         if (canPlace(board, piece, startRow, startCol)) {
-            placePiece(board, piece, startRow, startCol);
+            const pieceColor = window.selectedPieceColor || null;
+            placePiece(board, piece, startRow, startCol, pieceColor);
             
             setTimeout(() => {
                 let clearedRows = clearRow();
                 let clearedCols = clearCol();
                 let totalCleared = clearedRows + clearedCols;
-                score = calculateScore(piece, totalCleared);
-                scoreEl.textContent = score;
+                let startScore = score;
+                let scoreIncrement = calculateScore(piece, totalCleared);
+                score += scoreIncrement;
+                
 
+                animateScore(startScore, score, 800);
+
+                const pieceIndex = currentPieces.indexOf(piece);
                 currentPieces = currentPieces.filter(p => p !== piece);
+                currentPieceColors.splice(pieceIndex, 1);
 
                 renderBoard();
                 renderPieces(currentPieces);
@@ -96,6 +107,13 @@ function new3() {
     let piece1 = shapes[Math.floor(Math.random() * shapes.length)];
     let piece2 = shapes[Math.floor(Math.random() * shapes.length)];
     let piece3 = shapes[Math.floor(Math.random() * shapes.length)];
+    
+    currentPieceColors = [
+        pieceColors[Math.floor(Math.random() * pieceColors.length)],
+        pieceColors[Math.floor(Math.random() * pieceColors.length)],
+        pieceColors[Math.floor(Math.random() * pieceColors.length)]
+    ];
+    
     return [piece1, piece2, piece3]
 }
 
@@ -155,6 +173,7 @@ function clearRow() {
     clearedRows.forEach(row => {
         for (let c=0; c < board[row].length; c++) {
             board[row][c] = 0
+            boardColors[row][c] = null
         }
     })
     return numCleared
@@ -183,6 +202,7 @@ function clearCol() {
     clearedCols.forEach(col => {
         for (let r=0; r < board[col].length; r++) {
             board[r][col] = 0
+            boardColors[r][col] = null
         }
     })
     return numCleared
@@ -208,11 +228,12 @@ function checkGameOver(board, currentPieces) {
 
 
 
-function placePiece(board, shape, startRow, startCol) {
+function placePiece(board, shape, startRow, startCol, color) {
     for (let r = 0; r < shape.length; r++) {
         for (let c = 0; c < shape[0].length; c++) {
             if (shape[r][c] === 1) {
                 board[startRow + r][startCol + c] = 1;
+                boardColors[startRow + r][startCol + c] = color;
             }
         }
     }
@@ -255,7 +276,13 @@ function renderBoard() {
     for (let c = 0; c < 8; c++) {
       const cell = document.createElement('div');
       cell.classList.add('cell');
-      if (board[r][c] === 1) cell.classList.add('filled');
+      if (board[r][c] === 1) {
+        if (boardColors[r][c]) {
+          cell.style.backgroundColor = boardColors[r][c];
+        } else {
+          cell.style.backgroundColor = '#666'; // fallback color
+        }
+      }
       cell.dataset.row = r;
       cell.dataset.col = c;
       cell.addEventListener('click', handleClick);
@@ -276,13 +303,18 @@ function renderPieces(pieces) {
         pieceDiv.draggable = true;
         pieceDiv.dataset.pieceIndex = i;
 
+        const pieceColor = currentPieceColors[i] || pieceColors[Math.floor(Math.random() * pieceColors.length)];
+        pieceDiv.dataset.color = pieceColor;
+
         piece.forEach(row => {
             const rowDiv = document.createElement('div');
             rowDiv.style.display = 'flex';
             row.forEach(cell => {
                 const block = document.createElement('div');
                 block.classList.add('block');
-                if (cell === 1) block.classList.add('filled');
+                if (cell === 1) {
+                    block.style.backgroundColor = pieceColor;
+                }
                 rowDiv.appendChild(block);
             });
             pieceDiv.appendChild(rowDiv);
@@ -301,6 +333,8 @@ function renderPieces(pieces) {
             const rect = pieceDiv.getBoundingClientRect();
             dragOffsetX = e.clientX - rect.left;
             dragOffsetY = e.clientY - rect.top;
+            
+            window.selectedPieceColor = pieceColor;
             
             
             const dragImage = pieceDiv.cloneNode(true);
@@ -321,6 +355,7 @@ function renderPieces(pieces) {
 
         pieceDiv.addEventListener('dragend', () => {
             selectedPiece = null;
+            window.selectedPieceColor = null;
         });
 
         piecesEl.appendChild(pieceDiv);
@@ -404,14 +439,14 @@ function calculateScore(piece, linesCleared) {
         }
     }
     let bonus = 10 * linesCleared;
-    score += pieceSize + bonus;
-    return score
+    return pieceSize + bonus;
 }
 
 function restartGame() {
     for (let r = 0; r < board.length; r++) {
         for (let c = 0; c < board[0].length; c++) {
             board[r][c] = 0;
+            boardColors[r][c] = null;
         }
     }
     
@@ -430,4 +465,29 @@ function restartGame() {
     currentPieces = new3();
     renderPieces(currentPieces);
     runGame();
+}
+
+function animateScore(startScore, endScore, duration = 150) {
+    const scoreEl = document.getElementById('score');
+    
+    if (duration <= 16) {
+        scoreEl.textContent = endScore;
+        return;
+    }
+    
+    const stepDelay = Math.max(1, Math.floor(duration / 20));
+    let currentScore = startScore;
+    
+    function updateScore() {
+        if (currentScore < endScore) {
+            currentScore = Math.min(currentScore + 1, endScore);
+            scoreEl.textContent = currentScore;
+            
+            if (currentScore < endScore) {
+                setTimeout(updateScore, stepDelay);
+            }
+        }
+    }
+    
+    updateScore();
 }
