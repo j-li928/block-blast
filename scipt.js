@@ -10,6 +10,12 @@ const shapes = [
     [
         [1, 1, 1],
         [1, 1, 0]
+    ],
+    [
+        [1, 1, 1, 1],
+        [1, 0, 0, 0],
+        [1, 0, 0, 0],
+        [1, 0, 0, 0],
     ]
 ];
 
@@ -42,31 +48,38 @@ function runGame() {
 
         if (canPlace(board, piece, startRow, startCol)) {
             placePiece(board, piece, startRow, startCol);
-            let clearedRows = clearRow();
-            let clearedCols = clearCol();
-            let totalCleared = clearedRows + clearedCols;
-            score = calculateScore(piece, totalCleared);
-            scoreEl.textContent = score;
-
-            currentPieces = currentPieces.filter(p => p !== piece);
-
             
-            renderPieces(currentPieces);
-            
-            if (currentPieces.length === 0) {
-                currentPieces = new3();
+            setTimeout(() => {
+                let clearedRows = clearRow();
+                let clearedCols = clearCol();
+                let totalCleared = clearedRows + clearedCols;
+                score = calculateScore(piece, totalCleared);
+                scoreEl.textContent = score;
+
+                currentPieces = currentPieces.filter(p => p !== piece);
+
+                renderBoard();
                 renderPieces(currentPieces);
-            }
+                
+                if (currentPieces.length === 0) {
+                    currentPieces = new3();
+                    renderPieces(currentPieces);
+                }
 
+                if (checkGameOver(board, currentPieces)) {
+                    gameRunning = false;
+                    showGameOver();
+                    return;
+                }
+
+                runGame(); 
+            }, 300);
+        } else {
             if (checkGameOver(board, currentPieces)) {
                 gameRunning = false;
                 showGameOver();
                 return;
             }
-
-            runGame(); 
-        } else {
-            
             runGame(); 
         }
     });
@@ -89,9 +102,14 @@ function new3() {
 
 
 function canPlace(board, shape, startRow, startCol) {
-    for (let r =0; r < shape.length; r++) {
-        for (let c=0; c < shape.length; c++) {
-            if (shape[r][c] === 1) {
+    if (!shape || !Array.isArray(shape) || shape.length === 0 || !Array.isArray(shape[0])) {
+        console.log("Invalid shape provided to canPlace");
+        return false;
+    }
+    
+    for (let r = 0; r < shape.length; r++) {
+        for (let c = 0; c < shape[0].length; c++) {
+            if (shape[r] && shape[r][c] === 1) {
                 const boardRow = startRow + r;
                 const boardCol = startCol + c;
 
@@ -110,7 +128,6 @@ function canPlace(board, shape, startRow, startCol) {
             }
         }
     }
-
 
     console.log("You can place shape here.")
     return true;
@@ -178,8 +195,8 @@ function checkGameOver(board, currentPieces) {
         const pieceRows = piece.length;
         const pieceCols = piece[0].length;
 
-        for (let r = 0; r <= 8 - pieceRows; r++) {
-            for (let c = 0; c <= 8 - pieceCols; c++) {
+        for (let r = 0; r <= board.length - pieceRows; r++) {
+            for (let c = 0; c <= board[0].length - pieceCols; c++) {
                 if (canPlace(board, piece, r, c)) {
                     return false;
                 }
@@ -196,6 +213,21 @@ function placePiece(board, shape, startRow, startCol) {
         for (let c = 0; c < shape[0].length; c++) {
             if (shape[r][c] === 1) {
                 board[startRow + r][startCol + c] = 1;
+            }
+        }
+    }
+    
+    renderBoard();
+    for (let r = 0; r < shape.length; r++) {
+        for (let c = 0; c < shape[0].length; c++) {
+            if (shape[r][c] === 1) {
+                const cell = document.querySelector(`[data-row="${startRow + r}"][data-col="${startCol + c}"]`);
+                if (cell) {
+                    cell.classList.add('new-piece');
+                    setTimeout(() => {
+                        cell.classList.remove('new-piece');
+                    }, 300);
+                }
             }
         }
     }
@@ -296,7 +328,17 @@ function renderPieces(pieces) {
 }
 
 function showGameOver() {
-    alert("Game Over!");
+    console.log("game over!")
+    const gameOverScreen = document.getElementById('game-over-screen');
+    const finalScoreEl = document.getElementById('final-score');
+    
+    if (finalScoreEl) {
+        finalScoreEl.textContent = score;
+    }
+    
+    if (gameOverScreen) {
+        gameOverScreen.style.display = 'flex';
+    }
 }
 
 let selectedPiece = null;
@@ -364,4 +406,28 @@ function calculateScore(piece, linesCleared) {
     let bonus = 10 * linesCleared;
     score += pieceSize + bonus;
     return score
+}
+
+function restartGame() {
+    for (let r = 0; r < board.length; r++) {
+        for (let c = 0; c < board[0].length; c++) {
+            board[r][c] = 0;
+        }
+    }
+    
+    score = 0;
+    currentPieces = [];
+    gameRunning = true;
+    
+    scoreEl.textContent = score;
+    
+    const gameOverScreen = document.getElementById('game-over-screen');
+    if (gameOverScreen) {
+        gameOverScreen.style.display = 'none';
+    }
+    
+    renderBoard();
+    currentPieces = new3();
+    renderPieces(currentPieces);
+    runGame();
 }
