@@ -65,7 +65,7 @@ let highScore = localStorage.getItem('highScore') || 0;
 
 function runGame() {
     if (currentPieces.length < 1) {
-        currentPieces = new3(); 
+        currentPieces = generatePlaceablePieces(); 
         renderPieces(currentPieces); 
         
 
@@ -133,11 +133,9 @@ function runGame() {
                 }
                 
                 
-                const visiblePieces = document.querySelectorAll('.piece').length;
-                
-                if (visiblePieces === 0) {
+                if (currentPieces.length === 0) {
                     
-                    currentPieces = new3();
+                    currentPieces = generatePlaceablePieces();
                     renderPieces(currentPieces);
                     
                     if (checkGameOver(board, currentPieces)) {
@@ -174,9 +172,46 @@ function new3() {
     return [piece1, piece2, piece3]
 }
 
+function canPlaceAnywhere(board, piece) {
+    for (let r = 0; r <= board.length - piece.length; r++) {
+        for (let c = 0; c <= board[0].length - piece[0].length; c++) {
+            if (canPlace(board, piece, r, c)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+function generatePlaceablePieces() {
+    let attempts = 0;
+    const maxAttempts = 100; 
+    
+    while (attempts < maxAttempts) {
+        let piece1 = shapes[Math.floor(Math.random() * shapes.length)];
+        let piece2 = shapes[Math.floor(Math.random() * shapes.length)];
+        let piece3 = shapes[Math.floor(Math.random() * shapes.length)];
+        
+
+        if (canPlaceAnywhere(board, piece1) && 
+            canPlaceAnywhere(board, piece2) && 
+            canPlaceAnywhere(board, piece3)) {
+            return [piece1, piece2, piece3];
+        }
+        
+        attempts++;
+    }
+    
+
+    return [
+        shapes[Math.floor(Math.random() * shapes.length)],
+        shapes[Math.floor(Math.random() * shapes.length)],
+        shapes[Math.floor(Math.random() * shapes.length)]
+    ];
+}
+
 function canPlace(board, shape, startRow, startCol) {
     if (!shape || !Array.isArray(shape) || shape.length === 0 || !Array.isArray(shape[0])) {
-        console.log("Invalid shape provided to canPlace");
         return false;
     }
     
@@ -434,7 +469,6 @@ function renderPieces(pieces) {
 }
 
 function showGameOver() {
-    console.log("game over!")
     const gameOverScreen = document.getElementById('game-over-screen');
     const finalScoreEl = document.getElementById('final-score');
     
@@ -459,7 +493,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function handleClick(e) {
     if (!selectedPiece) {
-        alert("Select a piece first!");
         return;
     }
 
@@ -581,7 +614,7 @@ function restartGame() {
     }
     
     renderBoard();
-    currentPieces = new3();
+    currentPieces = generatePlaceablePieces();
     renderPieces(currentPieces);
     runGame();
 }
