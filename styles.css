@@ -126,7 +126,17 @@ body {
 
 .piece.selected {
     border-color: #2196f3;
-    background: transparent;
+    border-width: 3px;
+    border-style: solid;
+    background: rgba(33, 150, 243, 0.1);
+    box-shadow: 0 0 10px rgba(33, 150, 243, 0.5);
+    transform: scale(1.05);
+    transition: all 0.2s ease;
+}
+
+.piece.dragging {
+    filter: brightness(1.1);
+    transition: none;
 }
 
 .block {

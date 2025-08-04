@@ -88,15 +88,12 @@ function runGame() {
     waitForPlayerMove().then(move => {
         if (!move) return;
 
-        const { piece, mouseX, mouseY, offsetX, offsetY } = move;
+        const { piece, row, col, mouseX, mouseY, offsetX, offsetY } = move;
 
-        
-        const boardRect = boardEl.getBoundingClientRect();
-        const relativeX = mouseX - boardRect.left;
-        const relativeY = mouseY - boardRect.top;
-        
-        const startCol = Math.floor(relativeX / TILE_SIZE) - Math.floor(offsetX / TILE_SIZE);
-        const startRow = Math.floor(relativeY / TILE_SIZE) - Math.floor(offsetY / TILE_SIZE);
+        const pieceRows = piece.length;
+        const pieceCols = piece[0].length;
+        const startRow = row - Math.floor(pieceRows / 2);
+        const startCol = col - Math.floor(pieceCols / 2);
 
         if (canPlace(board, piece, startRow, startCol)) {
             const pieceColor = window.selectedPieceColor || null;
@@ -238,7 +235,7 @@ function canPlace(board, shape, startRow, startCol) {
     return true;
 }
 
-function clearRow() {
+function findFullRows() {
     let numCleared = 0;
     const clearedRows = []
     for (let r=0; r < board.length; r++) {
@@ -256,50 +253,50 @@ function clearRow() {
         }
     }
 
-
-    clearedRows.forEach(row => {
-        for (let c=0; c < board[row].length; c++) {
-            board[row][c] = 0
-            boardColors[row][c] = null
-        }
-    })
-    return numCleared
-
+    return { rows: clearedRows, count: numCleared }
 }
 
-function clearCol() {
+function findFullCols() {
     let numCleared = 0;
     const clearedCols = []
-    for (let c=0; c < board.length; c++) {
+    for (let c=0; c < board[0].length; c++) {
         let isFull = 0;
 
-        for (let r=0; r < board[0].length; r++) {
+        for (let r=0; r < board.length; r++) {
             if (board[r][c] === 1) {
                 isFull++
             }
         }
 
-        if( isFull === board[0].length) {
+        if( isFull === board.length) {
             clearedCols.push(c)
             numCleared++
         }
     }
 
-    clearedCols.forEach(col => {
-        for (let r=0; r < board.length; r++) {
-            board[r][col] = 0
-            boardColors[r][col] = null
-        }
-    })
-    return numCleared
+    return { cols: clearedCols, count: numCleared }
 }
 
 function clearFullLines() {
-    let numRows = clearRow()
-    let numCols = clearCol()
-    const total = numRows + numCols
-
-    return total
+    const fullRows = findFullRows();
+    const fullCols = findFullCols();
+    
+    fullRows.rows.forEach(row => {
+        for (let c = 0; c < board[0].length; c++) {
+            board[row][c] = 0;
+            boardColors[row][c] = null;
+        }
+    });
+    
+    fullCols.cols.forEach(col => {
+        for (let r = 0; r < board.length; r++) {
+            board[r][col] = 0;
+            boardColors[r][col] = null;
+        }
+    });
+    
+    const total = fullRows.count + fullCols.count;
+    return total;
 }
 
 
@@ -420,11 +417,20 @@ function renderPieces(pieces) {
 
         pieceElement.addEventListener('click', () => {
             selectedPiece = piece;
-            document.querySelectorAll('.piece').forEach(p => p.classList.remove('selected'));
+            console.log('Piece clicked, selectedPiece set to:', piece);
+            
+
+            document.querySelectorAll('.piece').forEach(p => {
+                p.classList.remove('selected');
+                console.log('Removed selected class from piece');
+            });
+            
             pieceElement.classList.add('selected');
+            console.log('Added selected class to piece element');
         });
 
         pieceElement.addEventListener('mousedown', (e) => {
+            e.preventDefault();
             selectedPiece = piece;
             window.selectedPieceColor = pieceColor;
             
@@ -432,24 +438,31 @@ function renderPieces(pieces) {
             dragOffsetX = e.clientX - rect.left;
             dragOffsetY = e.clientY - rect.top;
             
-
+            pieceElement.classList.add('dragging');
+            
             pieceElement.style.position = 'fixed';
             pieceElement.style.left = rect.left + 'px';
             pieceElement.style.top = rect.top + 'px';
             pieceElement.style.zIndex = '1000';
             pieceElement.style.pointerEvents = 'none';
+            pieceElement.style.transform = 'scale(1.05)';
+            pieceElement.style.transition = 'none';
             
             const moveHandler = (e) => {
+                e.preventDefault();
                 pieceElement.style.left = (e.clientX - dragOffsetX) + 'px';
                 pieceElement.style.top = (e.clientY - dragOffsetY) + 'px';
             };
             
-            const upHandler = () => {
+            const upHandler = (e) => {
+                pieceElement.classList.remove('dragging');
                 pieceElement.style.position = '';
                 pieceElement.style.zIndex = '';
                 pieceElement.style.pointerEvents = '';
                 pieceElement.style.left = '';
                 pieceElement.style.top = '';
+                pieceElement.style.transform = '';
+                pieceElement.style.transition = '';
                 
                 document.removeEventListener('mousemove', moveHandler);
                 document.removeEventListener('mouseup', upHandler);
@@ -513,13 +526,15 @@ function addDragDropListeners() {
     document.querySelectorAll('.cell').forEach(cell => {
         cell.addEventListener('mouseup', (e) => {
             if (selectedPiece) {
-                const mouseX = e.clientX;
-                const mouseY = e.clientY;
+                const row = parseInt(cell.dataset.row);
+                const col = parseInt(cell.dataset.col);
                 
                 window.resolvePlayerMove({
                     piece: selectedPiece,
-                    mouseX: mouseX,
-                    mouseY: mouseY,
+                    row: row,
+                    col: col,
+                    mouseX: e.clientX,
+                    mouseY: e.clientY,
                     offsetX: dragOffsetX,
                     offsetY: dragOffsetY
                 });
@@ -532,7 +547,6 @@ function addDragDropListeners() {
             }
         });
         
-
         cell.addEventListener('mouseleave', () => {
             clearPlacementPreview();
         });
@@ -540,26 +554,28 @@ function addDragDropListeners() {
 }
 
 function showPlacementPreview(e) {
-
     clearPlacementPreview();
     
-    const boardRect = boardEl.getBoundingClientRect();
-    const relativeX = e.clientX - boardRect.left;
-    const relativeY = e.clientY - boardRect.top;
+    const cell = e.target;
+    if (!cell.classList.contains('cell')) return;
     
-    const startCol = Math.floor(relativeX / TILE_SIZE) - Math.floor(dragOffsetX / TILE_SIZE);
-    const startRow = Math.floor(relativeY / TILE_SIZE) - Math.floor(dragOffsetY / TILE_SIZE);
+    const startRow = parseInt(cell.dataset.row);
+    const startCol = parseInt(cell.dataset.col);
     
-
-    if (!canPlace(board, selectedPiece, startRow, startCol)) {
+    const pieceRows = selectedPiece.length;
+    const pieceCols = selectedPiece[0].length;
+    const adjustedRow = startRow - Math.floor(pieceRows / 2);
+    const adjustedCol = startCol - Math.floor(pieceCols / 2);
+    
+    if (!canPlace(board, selectedPiece, adjustedRow, adjustedCol)) {
         return;
     }
     
     for (let r = 0; r < selectedPiece.length; r++) {
         for (let c = 0; c < selectedPiece[0].length; c++) {
             if (selectedPiece[r][c] === 1) {
-                const boardRow = startRow + r;
-                const boardCol = startCol + c;
+                const boardRow = adjustedRow + r;
+                const boardCol = adjustedCol + c;
                 
                 if (boardRow >= 0 && boardRow < board.length && 
                     boardCol >= 0 && boardCol < board[0].length) {
