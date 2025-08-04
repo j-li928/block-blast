@@ -7,7 +7,6 @@ const shapes = [
     [[1, 1, 1, 1]],
     [[1, 1, 1]],
     [[1, 1]],
-    [[1]],
     [
         [1, 1, 1],
         [1, 1, 0]
@@ -17,6 +16,41 @@ const shapes = [
         [1, 0, 0, 0],
         [1, 0, 0, 0],
         [1, 0, 0, 0],
+    ],
+    [
+        [1, 1],
+        [1, 1],
+        [1, 1]
+    ],
+    [
+        [1, 0, 0],
+        [1, 0, 0],
+        [1, 1, 1]
+    ],
+    [
+        [1, 1, 1],
+        [1, 0, 0],
+        [1, 0, 0]
+    ],
+    [
+        [1, 1, 1],
+        [0, 0, 1],
+        [0, 0, 1],
+        [0, 0, 1]
+    ],
+    [
+        [1],
+        [1],
+        [1],
+        [1]
+    ],
+    [
+        [1],
+        [1],
+        [1],
+        [1],
+        [1],
+        [1]
     ]
 ];
 const pieceColors = ['#FF6B6B', '#6BCB77', '#4D96FF', '#FFD93D', '#A66DD4', '#FF8E00'];
@@ -27,6 +61,7 @@ let gameRunning = true;
 const boardEl = document.getElementById('board');
 const scoreEl = document.getElementById('score');
 let score = 0;
+let highScore = localStorage.getItem('highScore') || 0;
 
 function runGame() {
     if (currentPieces.length < 1) {
@@ -67,17 +102,19 @@ function runGame() {
             const pieceColor = window.selectedPieceColor || null;
             placePiece(board, piece, startRow, startCol, pieceColor);
             
+            selectedPiece = null;
+            window.selectedPieceColor = null;
+            clearPlacementPreview();
+            
             setTimeout(() => {
-                let clearedRows = clearRow();
-                let clearedCols = clearCol();
-                let totalCleared = clearedRows + clearedCols;
+                let totalCleared = clearFullLines();
                 let startScore = score;
                 let scoreIncrement = calculateScore(piece, totalCleared);
                 score += scoreIncrement;
                 
 
                 animateScore(startScore, score, 800);
-
+                checkAndSaveHighScore(score)
 
                 
                 renderBoard();
@@ -90,20 +127,19 @@ function runGame() {
                 for (let i = 0; i < pieceElements.length; i++) {
                     const element = pieceElements[i];
                     if (element.dataset.piece === JSON.stringify(piece)) {
-                        element.style.display = 'none';
+                        element.remove();
                         break;
                     }
                 }
                 
                 
-                const visiblePieces = document.querySelectorAll('.piece:not([style*="display: none"])').length;
+                const visiblePieces = document.querySelectorAll('.piece').length;
                 
                 if (visiblePieces === 0) {
                     
                     currentPieces = new3();
                     renderPieces(currentPieces);
                     
-                   
                     if (checkGameOver(board, currentPieces)) {
                         gameRunning = false;
                         showGameOver();
@@ -138,8 +174,6 @@ function new3() {
     return [piece1, piece2, piece3]
 }
 
-
-
 function canPlace(board, shape, startRow, startCol) {
     if (!shape || !Array.isArray(shape) || shape.length === 0 || !Array.isArray(shape[0])) {
         console.log("Invalid shape provided to canPlace");
@@ -156,19 +190,16 @@ function canPlace(board, shape, startRow, startCol) {
                     boardRow < 0 || boardRow >= board.length ||
                     boardCol < 0 || boardCol >= board[0].length
                 ) {
-                    console.log("You can't place shape here.")
                     return false;
                 }
 
                 if (board[boardRow][boardCol] !== 0) {
-                    console.log("You can't place shape here.")
                     return false;
                 }
             }
         }
     }
 
-    console.log("You can place shape here.")
     return true;
 }
 
@@ -219,14 +250,21 @@ function clearCol() {
         }
     }
 
-
     clearedCols.forEach(col => {
-        for (let r=0; r < board[col].length; r++) {
+        for (let r=0; r < board.length; r++) {
             board[r][col] = 0
             boardColors[r][col] = null
         }
     })
     return numCleared
+}
+
+function clearFullLines() {
+    let numRows = clearRow()
+    let numCols = clearCol()
+    const total = numRows + numCols
+
+    return total
 }
 
 
@@ -414,6 +452,8 @@ let dragOffsetX = 0;
 let dragOffsetY = 0;
 
 document.addEventListener('DOMContentLoaded', () => {
+
+    document.getElementById('high-score').textContent = highScore;
     runGame();
 });
 
@@ -452,6 +492,57 @@ function addDragDropListeners() {
                 });
             }
         });
+        
+        cell.addEventListener('mouseenter', (e) => {
+            if (selectedPiece) {
+                showPlacementPreview(e);
+            }
+        });
+        
+
+        cell.addEventListener('mouseleave', () => {
+            clearPlacementPreview();
+        });
+    });
+}
+
+function showPlacementPreview(e) {
+
+    clearPlacementPreview();
+    
+    const boardRect = boardEl.getBoundingClientRect();
+    const relativeX = e.clientX - boardRect.left;
+    const relativeY = e.clientY - boardRect.top;
+    
+    const startCol = Math.floor(relativeX / TILE_SIZE) - Math.floor(dragOffsetX / TILE_SIZE);
+    const startRow = Math.floor(relativeY / TILE_SIZE) - Math.floor(dragOffsetY / TILE_SIZE);
+    
+
+    if (!canPlace(board, selectedPiece, startRow, startCol)) {
+        return;
+    }
+    
+    for (let r = 0; r < selectedPiece.length; r++) {
+        for (let c = 0; c < selectedPiece[0].length; c++) {
+            if (selectedPiece[r][c] === 1) {
+                const boardRow = startRow + r;
+                const boardCol = startCol + c;
+                
+                if (boardRow >= 0 && boardRow < board.length && 
+                    boardCol >= 0 && boardCol < board[0].length) {
+                    const cell = document.querySelector(`[data-row="${boardRow}"][data-col="${boardCol}"]`);
+                    if (cell && board[boardRow][boardCol] === 0) {
+                        cell.classList.add('placement-preview');
+                    }
+                }
+            }
+        }
+    }
+}
+
+function clearPlacementPreview() {
+    document.querySelectorAll('.placement-preview').forEach(cell => {
+        cell.classList.remove('placement-preview');
     });
 }
 
@@ -481,6 +572,8 @@ function restartGame() {
     gameRunning = true;
     
     scoreEl.textContent = score;
+    
+    document.getElementById('high-score').textContent = highScore;
     
     const gameOverScreen = document.getElementById('game-over-screen');
     if (gameOverScreen) {
@@ -516,4 +609,13 @@ function animateScore(startScore, endScore, duration = 150) {
     }
     
     updateScore();
+}
+
+function checkAndSaveHighScore(currentScoreInt) {
+    let currentScore = parseInt(currentScoreInt);
+    if (currentScore > highScore) {
+        highScore = currentScore;
+        localStorage.setItem('highScore', highScore)
+    }
+    document.getElementById('high-score').textContent = highScore;
 }
