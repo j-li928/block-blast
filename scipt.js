@@ -88,20 +88,14 @@ function runGame() {
     waitForPlayerMove().then(move => {
         if (!move) return;
 
-        const { piece, row, col, mouseX, mouseY, offsetX, offsetY } = move;
-
-        const pieceRows = piece.length;
-        const pieceCols = piece[0].length;
-        const startRow = row - Math.floor(pieceRows / 2);
-        const startCol = col - Math.floor(pieceCols / 2);
+        const { piece, startRow, startCol, color } = move;
 
         if (canPlace(board, piece, startRow, startCol)) {
-            const pieceColor = window.selectedPieceColor || null;
-            placePiece(board, piece, startRow, startCol, pieceColor);
+            placePiece(board, piece, startRow, startCol, color);
             
             selectedPiece = null;
             window.selectedPieceColor = null;
-            clearPlacementPreview();
+            clearGhostPreview();
             
             setTimeout(() => {
                 let totalCleared = clearFullLines();
@@ -144,13 +138,14 @@ function runGame() {
 
                 runGame(); 
             }, 300);
-        }
+        } else {
             if (checkGameOver(board, currentPieces)) {
                 gameRunning = false;
                 showGameOver();
                 return;
             }
             runGame(); 
+        }
     });
 }
 
@@ -377,11 +372,9 @@ function renderBoard() {
       }
       cell.dataset.row = r;
       cell.dataset.col = c;
-      cell.addEventListener('click', handleClick);
       boardEl.appendChild(cell);
     }
   }
-  addDragDropListeners();
 }
 
 const piecesEl = document.getElementById('pieces');
@@ -415,66 +408,113 @@ function renderPieces(pieces) {
             pieceElement.appendChild(rowDiv);
         });
 
-        pieceElement.addEventListener('click', () => {
-            selectedPiece = piece;
-            console.log('Piece clicked, selectedPiece set to:', piece);
-            
-
-            document.querySelectorAll('.piece').forEach(p => {
-                p.classList.remove('selected');
-                console.log('Removed selected class from piece');
-            });
-            
-            pieceElement.classList.add('selected');
-            console.log('Added selected class to piece element');
-        });
+        pieceElement.style.transform = 'scale(0.5)';
+        pieceElement.style.transition = 'transform 0.3s ease';
 
         pieceElement.addEventListener('mousedown', (e) => {
             e.preventDefault();
             selectedPiece = piece;
             window.selectedPieceColor = pieceColor;
+
+            const boardRect = boardEl.getBoundingClientRect();
+            const boardCenterX = boardRect.left + (boardRect.width / 2);
+            const boardBottomY = boardRect.bottom - 50;
             
-            const rect = pieceElement.getBoundingClientRect();
-            dragOffsetX = e.clientX - rect.left;
-            dragOffsetY = e.clientY - rect.top;
+
+            pieceElement.style.position = 'fixed';
+            pieceElement.style.left = boardCenterX + 'px';
+            pieceElement.style.top = boardBottomY + 'px';
+            pieceElement.style.transform = 'translate(-50%, -50%) scale(1.0)';
+            pieceElement.style.zIndex = '1000';
+            pieceElement.style.transition = 'none';
+            
+
+            const startMouseX = e.clientX;
+            const startMouseY = e.clientY;
             
             pieceElement.classList.add('dragging');
             
-            pieceElement.style.position = 'fixed';
-            pieceElement.style.left = rect.left + 'px';
-            pieceElement.style.top = rect.top + 'px';
-            pieceElement.style.zIndex = '1000';
-            pieceElement.style.pointerEvents = 'none';
-            pieceElement.style.transform = 'scale(1.05)';
-            pieceElement.style.transition = 'none';
-            
             const moveHandler = (e) => {
                 e.preventDefault();
-                pieceElement.style.left = (e.clientX - dragOffsetX) + 'px';
-                pieceElement.style.top = (e.clientY - dragOffsetY) + 'px';
+                
+                const deltaX = e.clientX - startMouseX;
+                const deltaY = e.clientY - startMouseY;
+                
+                pieceElement.style.left = (boardCenterX + deltaX) + 'px';
+                pieceElement.style.top = (boardBottomY + deltaY) + 'px';
+                pieceElement.style.transform = 'translate(-50%, -50%) scale(1.0)';
+                
+                showGhostPreviewFromPiecePosition(pieceElement);
             };
             
             const upHandler = (e) => {
                 pieceElement.classList.remove('dragging');
                 pieceElement.style.position = '';
                 pieceElement.style.zIndex = '';
-                pieceElement.style.pointerEvents = '';
                 pieceElement.style.left = '';
                 pieceElement.style.top = '';
-                pieceElement.style.transform = '';
-                pieceElement.style.transition = '';
+                pieceElement.style.transform = 'scale(0.5)';
+                pieceElement.style.transition = 'transform 0.3s ease';
                 
                 document.removeEventListener('mousemove', moveHandler);
                 document.removeEventListener('mouseup', upHandler);
+                
+
+                const boardRect = boardEl.getBoundingClientRect();
+                const pieceRect = pieceElement.getBoundingClientRect();
+
+
+                const pieceLeft = pieceRect.left;
+                const pieceTop = pieceRect.top;
+                
+
+                const boardX = pieceLeft - boardRect.left;
+                const boardY = pieceTop - boardRect.top;
+                
+                const col = Math.floor(boardX / TILE_SIZE);
+                const row = Math.floor(boardY / TILE_SIZE);
+                
+                console.log('Piece position:', { pieceLeft, pieceTop, boardX, boardY, col, row });
+                console.log('Board rect:', boardRect);
+                console.log('Piece rect:', pieceRect);
+                
+
+                const ghostCells = document.querySelectorAll('.ghost-preview');
+                if (ghostCells.length > 0) {
+
+                    let minRow = 8, minCol = 8;
+                    ghostCells.forEach(cell => {
+                        const row = parseInt(cell.dataset.row);
+                        const col = parseInt(cell.dataset.col);
+                        if (row < minRow) minRow = row;
+                        if (col < minCol) minCol = col;
+                    });
+                    
+                    console.log('Ghost preview position:', { minRow, minCol });
+                    console.log('Can place:', canPlace(board, selectedPiece, minRow, minCol));
+                    
+                    if (canPlace(board, selectedPiece, minRow, minCol)) {
+                        console.log('Placement successful!');
+                        window.resolvePlayerMove({
+                            piece: selectedPiece,
+                            startRow: minRow,
+                            startCol: minCol,
+                            color: window.selectedPieceColor
+                        });
+                    } else {
+                        console.log('Placement failed - invalid position');
+                    }
+                } else {
+                    console.log('No ghost preview found');
+                }
+                
+                clearGhostPreview();
+                selectedPiece = null;
+                window.selectedPieceColor = null;
             };
             
             document.addEventListener('mousemove', moveHandler);
             document.addEventListener('mouseup', upHandler);
-        });
-
-        pieceElement.addEventListener('dragend', () => {
-            selectedPiece = null;
-            window.selectedPieceColor = null;
         });
 
         piecesEl.appendChild(pieceElement);
@@ -504,95 +544,8 @@ document.addEventListener('DOMContentLoaded', () => {
     runGame();
 });
 
-function handleClick(e) {
-    if (!selectedPiece) {
-        return;
-    }
-
-    const row = parseInt(e.target.dataset.row);
-    const col = parseInt(e.target.dataset.col);
-
-    window.resolvePlayerMove({
-        piece: selectedPiece,
-        row,
-        col
-    });
-
-    selectedPiece = null;
-}
-
-
 function addDragDropListeners() {
-    document.querySelectorAll('.cell').forEach(cell => {
-        cell.addEventListener('mouseup', (e) => {
-            if (selectedPiece) {
-                const row = parseInt(cell.dataset.row);
-                const col = parseInt(cell.dataset.col);
-                
-                window.resolvePlayerMove({
-                    piece: selectedPiece,
-                    row: row,
-                    col: col,
-                    mouseX: e.clientX,
-                    mouseY: e.clientY,
-                    offsetX: dragOffsetX,
-                    offsetY: dragOffsetY
-                });
-            }
-        });
-        
-        cell.addEventListener('mouseenter', (e) => {
-            if (selectedPiece) {
-                showPlacementPreview(e);
-            }
-        });
-        
-        cell.addEventListener('mouseleave', () => {
-            clearPlacementPreview();
-        });
-    });
-}
 
-function showPlacementPreview(e) {
-    clearPlacementPreview();
-    
-    const cell = e.target;
-    if (!cell.classList.contains('cell')) return;
-    
-    const startRow = parseInt(cell.dataset.row);
-    const startCol = parseInt(cell.dataset.col);
-    
-    const pieceRows = selectedPiece.length;
-    const pieceCols = selectedPiece[0].length;
-    const adjustedRow = startRow - Math.floor(pieceRows / 2);
-    const adjustedCol = startCol - Math.floor(pieceCols / 2);
-    
-    if (!canPlace(board, selectedPiece, adjustedRow, adjustedCol)) {
-        return;
-    }
-    
-    for (let r = 0; r < selectedPiece.length; r++) {
-        for (let c = 0; c < selectedPiece[0].length; c++) {
-            if (selectedPiece[r][c] === 1) {
-                const boardRow = adjustedRow + r;
-                const boardCol = adjustedCol + c;
-                
-                if (boardRow >= 0 && boardRow < board.length && 
-                    boardCol >= 0 && boardCol < board[0].length) {
-                    const cell = document.querySelector(`[data-row="${boardRow}"][data-col="${boardCol}"]`);
-                    if (cell && board[boardRow][boardCol] === 0) {
-                        cell.classList.add('placement-preview');
-                    }
-                }
-            }
-        }
-    }
-}
-
-function clearPlacementPreview() {
-    document.querySelectorAll('.placement-preview').forEach(cell => {
-        cell.classList.remove('placement-preview');
-    });
 }
 
 function calculateScore(piece, linesCleared) {
@@ -667,4 +620,85 @@ function checkAndSaveHighScore(currentScoreInt) {
         localStorage.setItem('highScore', highScore)
     }
     document.getElementById('high-score').textContent = highScore;
+}
+
+function showGhostPreview(e) {
+    clearGhostPreview();
+    
+    const boardRect = boardEl.getBoundingClientRect();
+    const mouseX = e.clientX - boardRect.left;
+    const mouseY = e.clientY - boardRect.top;
+    
+    const col = Math.floor(mouseX / TILE_SIZE);
+    const row = Math.floor(mouseY / TILE_SIZE);
+    
+    if (col >= 0 && col < 8 && row >= 0 && row < 8) {
+
+        for (let r = 0; r < selectedPiece.length; r++) {
+            for (let c = 0; c < selectedPiece[0].length; c++) {
+                if (selectedPiece[r][c] === 1) {
+                    const boardRow = row + r;
+                    const boardCol = col + c;
+                    
+                    if (boardRow >= 0 && boardRow < board.length && 
+                        boardCol >= 0 && boardCol < board[0].length) {
+                        const cell = document.querySelector(`[data-row="${boardRow}"][data-col="${boardCol}"]`);
+                        if (cell && board[boardRow][boardCol] === 0) {
+                            cell.classList.add('ghost-preview');
+                            cell.style.backgroundColor = window.selectedPieceColor + '80';
+                            cell.style.border = '2px dashed ' + window.selectedPieceColor;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+function showGhostPreviewFromPiecePosition(pieceElement) {
+    clearGhostPreview();
+    
+    const boardRect = boardEl.getBoundingClientRect();
+    const pieceRect = pieceElement.getBoundingClientRect();
+    
+
+    const pieceLeft = pieceRect.left;
+    const pieceTop = pieceRect.top;
+    
+
+    const boardX = pieceLeft - boardRect.left;
+    const boardY = pieceTop - boardRect.top;
+    
+    const col = Math.floor(boardX / TILE_SIZE);
+    const row = Math.floor(boardY / TILE_SIZE);
+    
+    if (col >= 0 && col < 8 && row >= 0 && row < 8) {
+
+        for (let r = 0; r < selectedPiece.length; r++) {
+            for (let c = 0; c < selectedPiece[0].length; c++) {
+                if (selectedPiece[r][c] === 1) {
+                    const boardRow = row + r;
+                    const boardCol = col + c;
+                    
+                    if (boardRow >= 0 && boardRow < board.length && 
+                        boardCol >= 0 && boardCol < board[0].length) {
+                        const cell = document.querySelector(`[data-row="${boardRow}"][data-col="${boardCol}"]`);
+                        if (cell && board[boardRow][boardCol] === 0) {
+                            cell.classList.add('ghost-preview');
+                            cell.style.backgroundColor = window.selectedPieceColor + '80';
+                            cell.style.border = '2px dashed ' + window.selectedPieceColor;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+function clearGhostPreview() {
+    document.querySelectorAll('.ghost-preview').forEach(cell => {
+        cell.classList.remove('ghost-preview');
+        cell.style.backgroundColor = '';
+        cell.style.border = '';
+    });
 }
