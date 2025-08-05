@@ -12,10 +12,10 @@ const shapes = [
         [1, 1, 0]
     ],
     [
-        [1, 1, 1, 1],
-        [1, 0, 0, 0],
-        [1, 0, 0, 0],
-        [1, 0, 0, 0],
+        [1, 1, 1],
+        [1, 0, 0],
+        [1, 0, 0],
+        [1, 0, 0],
     ],
     [
         [1, 1],
@@ -51,6 +51,23 @@ const shapes = [
         [1],
         [1],
         [1]
+    ],
+    [
+        [0, 1, 0],
+        [1, 1, 1]
+    ],
+    [
+        [1, 1],
+        [1, 1]
+    ],
+    [
+        [0, 1, 1],
+        [1, 1, 0]
+    ],
+    [
+        [1, 1, 1],
+        [1, 1, 1],
+        [1, 1, 1]
     ]
 ];
 const pieceColors = ['#FF6B6B', '#6BCB77', '#4D96FF', '#FFD93D', '#A66DD4', '#FF8E00'];
@@ -474,9 +491,7 @@ function renderPieces(pieces) {
                 const col = Math.floor(boardX / TILE_SIZE);
                 const row = Math.floor(boardY / TILE_SIZE);
                 
-                console.log('Piece position:', { pieceLeft, pieceTop, boardX, boardY, col, row });
-                console.log('Board rect:', boardRect);
-                console.log('Piece rect:', pieceRect);
+
                 
 
                 const ghostCells = document.querySelectorAll('.ghost-preview');
@@ -490,24 +505,17 @@ function renderPieces(pieces) {
                         if (col < minCol) minCol = col;
                     });
                     
-                    console.log('Ghost preview position:', { minRow, minCol });
-                    console.log('Can place:', canPlace(board, selectedPiece, minRow, minCol));
+
                     
                     if (canPlace(board, selectedPiece, minRow, minCol)) {
-                        console.log('Placement successful!');
                         window.resolvePlayerMove({
                             piece: selectedPiece,
                             startRow: minRow,
                             startCol: minCol,
                             color: window.selectedPieceColor
                         });
-                    } else {
-                        console.log('Placement failed - invalid position');
-                    }
-                } else {
-                    console.log('No ghost preview found');
-                }
-                
+                    } 
+                } 
                 clearGhostPreview();
                 selectedPiece = null;
                 window.selectedPieceColor = null;
@@ -522,16 +530,23 @@ function renderPieces(pieces) {
 }
 
 function showGameOver() {
-    const gameOverScreen = document.getElementById('game-over-screen');
-    const finalScoreEl = document.getElementById('final-score');
+    renderBoard();
     
-    if (finalScoreEl) {
-        finalScoreEl.textContent = score;
-    }
+    fadeOutBoard();
     
-    if (gameOverScreen) {
-        gameOverScreen.style.display = 'flex';
-    }
+
+    setTimeout(() => {
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const finalScoreEl = document.getElementById('final-score');
+        
+        if (finalScoreEl) {
+            finalScoreEl.textContent = score;
+        }
+        
+        if (gameOverScreen) {
+            gameOverScreen.style.display = 'flex';
+        }
+    }, 3000); 
 }
 
 let selectedPiece = null;
@@ -588,7 +603,7 @@ function restartGame() {
     runGame();
 }
 
-function animateScore(startScore, endScore, duration = 150) {
+function animateScore(startScore, endScore, duration = 200) {
     const scoreEl = document.getElementById('score');
     
     if (duration <= 16) {
@@ -702,3 +717,19 @@ function clearGhostPreview() {
         cell.style.border = '';
     });
 }
+
+function fadeOutBoard() {
+    
+    const filledCells = Array.from(document.querySelectorAll('.cell'))
+        .filter(cell => cell.style.backgroundColor);
+    
+    
+    filledCells.forEach((cell, index) => {
+
+        setTimeout(() => {
+            cell.classList.add('dissolve');
+
+        }, index * 50); 
+    });
+}
+
