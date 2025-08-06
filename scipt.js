@@ -2,6 +2,22 @@ const TILE_SIZE = 42;
 const board = Array(8).fill(0).map(() => Array(8).fill(0));
 const boardColors = Array(8).fill(0).map(() => Array(8).fill(null));
 
+const clickSounds = [
+    new Audio("click.wav"),
+    new Audio("click1.mp3"),
+    new Audio("click2.mp3"),
+    new Audio("click3.mp3")
+]
+
+const gameOverSound = new Audio("gameOver.mp3");
+let isMuted = false;
+const soundToggle = document.getElementById("sound-toggle");
+soundToggle.addEventListener("click", () => {
+  isMuted = !isMuted;
+  soundToggle.textContent = isMuted ? " Sound: Off" : " Sound: On";
+});
+
+
 const shapes = [
     [[1, 1, 1, 1, 1]],
     [[1, 1, 1, 1]],
@@ -109,6 +125,7 @@ function runGame() {
 
         if (canPlace(board, piece, startRow, startCol)) {
             placePiece(board, piece, startRow, startCol, color);
+            playRandomClick();
             
             selectedPiece = null;
             window.selectedPieceColor = null;
@@ -355,6 +372,8 @@ function placePiece(board, shape, startRow, startCol, color) {
             }
         }
     }
+
+
 }
 
 function placePieceAtMouse(board, shape, mouseX, mouseY, grabbedTileOffsetY, grabbedTileOffsetX) {
@@ -546,7 +565,7 @@ function showGameOver() {
         if (gameOverScreen) {
             gameOverScreen.style.display = 'flex';
         }
-    }, 3000); 
+    }, 2700); 
 }
 
 let selectedPiece = null;
@@ -637,6 +656,58 @@ function checkAndSaveHighScore(currentScoreInt) {
     document.getElementById('high-score').textContent = highScore;
 }
 
+function checkPotentialLineCompletions(piece, startRow, startCol) {
+    const potentialCompletions = {
+        rows: [],
+        cols: []
+    };
+    
+
+    const tempBoard = board.map(row => [...row]);
+    
+
+    for (let r = 0; r < piece.length; r++) {
+        for (let c = 0; c < piece[0].length; c++) {
+            if (piece[r][c] === 1) {
+                const boardRow = startRow + r;
+                const boardCol = startCol + c;
+                if (boardRow >= 0 && boardRow < board.length && 
+                    boardCol >= 0 && boardCol < board[0].length) {
+                    tempBoard[boardRow][boardCol] = 1;
+                }
+            }
+        }
+    }
+    
+    for (let r = 0; r < board.length; r++) {
+        let isFull = true;
+        for (let c = 0; c < board[0].length; c++) {
+            if (tempBoard[r][c] !== 1) {
+                isFull = false;
+                break;
+            }
+        }
+        if (isFull) {
+            potentialCompletions.rows.push(r);
+        }
+    }
+    
+    for (let c = 0; c < board[0].length; c++) {
+        let isFull = true;
+        for (let r = 0; r < board.length; r++) {
+            if (tempBoard[r][c] !== 1) {
+                isFull = false;
+                break;
+            }
+        }
+        if (isFull) {
+            potentialCompletions.cols.push(c);
+        }
+    }
+    
+    return potentialCompletions;
+}
+
 function showGhostPreview(e) {
     clearGhostPreview();
     
@@ -649,23 +720,32 @@ function showGhostPreview(e) {
     
     if (col >= 0 && col < 8 && row >= 0 && row < 8) {
 
-        for (let r = 0; r < selectedPiece.length; r++) {
-            for (let c = 0; c < selectedPiece[0].length; c++) {
-                if (selectedPiece[r][c] === 1) {
-                    const boardRow = row + r;
-                    const boardCol = col + c;
-                    
-                    if (boardRow >= 0 && boardRow < board.length && 
-                        boardCol >= 0 && boardCol < board[0].length) {
-                        const cell = document.querySelector(`[data-row="${boardRow}"][data-col="${boardCol}"]`);
-                        if (cell && board[boardRow][boardCol] === 0) {
-                            cell.classList.add('ghost-preview');
-                            cell.style.backgroundColor = window.selectedPieceColor + '80';
-                            cell.style.border = '2px dashed ' + window.selectedPieceColor;
+        if (canPlace(board, selectedPiece, row, col)) {
+
+            const completions = checkPotentialLineCompletions(selectedPiece, row, col);
+            
+
+            for (let r = 0; r < selectedPiece.length; r++) {
+                for (let c = 0; c < selectedPiece[0].length; c++) {
+                    if (selectedPiece[r][c] === 1) {
+                        const boardRow = row + r;
+                        const boardCol = col + c;
+                        
+                        if (boardRow >= 0 && boardRow < board.length && 
+                            boardCol >= 0 && boardCol < board[0].length) {
+                            const cell = document.querySelector(`[data-row="${boardRow}"][data-col="${boardCol}"]`);
+                            if (cell && board[boardRow][boardCol] === 0) {
+                                cell.classList.add('ghost-preview');
+                                cell.style.backgroundColor = window.selectedPieceColor + '80';
+                                cell.style.border = '2px dashed ' + window.selectedPieceColor;
+                            }
                         }
                     }
                 }
             }
+            
+
+            highlightPotentialCompletions(completions);
         }
     }
 }
@@ -676,11 +756,9 @@ function showGhostPreviewFromPiecePosition(pieceElement) {
     const boardRect = boardEl.getBoundingClientRect();
     const pieceRect = pieceElement.getBoundingClientRect();
     
-
     const pieceLeft = pieceRect.left;
     const pieceTop = pieceRect.top;
     
-
     const boardX = pieceLeft - boardRect.left;
     const boardY = pieceTop - boardRect.top;
     
@@ -689,25 +767,58 @@ function showGhostPreviewFromPiecePosition(pieceElement) {
     
     if (col >= 0 && col < 8 && row >= 0 && row < 8) {
 
-        for (let r = 0; r < selectedPiece.length; r++) {
-            for (let c = 0; c < selectedPiece[0].length; c++) {
-                if (selectedPiece[r][c] === 1) {
-                    const boardRow = row + r;
-                    const boardCol = col + c;
-                    
-                    if (boardRow >= 0 && boardRow < board.length && 
-                        boardCol >= 0 && boardCol < board[0].length) {
-                        const cell = document.querySelector(`[data-row="${boardRow}"][data-col="${boardCol}"]`);
-                        if (cell && board[boardRow][boardCol] === 0) {
-                            cell.classList.add('ghost-preview');
-                            cell.style.backgroundColor = window.selectedPieceColor + '80';
-                            cell.style.border = '2px dashed ' + window.selectedPieceColor;
+        if (canPlace(board, selectedPiece, row, col)) {
+
+            const completions = checkPotentialLineCompletions(selectedPiece, row, col);
+            
+
+            for (let r = 0; r < selectedPiece.length; r++) {
+                for (let c = 0; c < selectedPiece[0].length; c++) {
+                    if (selectedPiece[r][c] === 1) {
+                        const boardRow = row + r;
+                        const boardCol = col + c;
+                        
+                        if (boardRow >= 0 && boardRow < board.length && 
+                            boardCol >= 0 && boardCol < board[0].length) {
+                            const cell = document.querySelector(`[data-row="${boardRow}"][data-col="${boardCol}"]`);
+                            if (cell && board[boardRow][boardCol] === 0) {
+                                cell.classList.add('ghost-preview');
+                                cell.style.backgroundColor = window.selectedPieceColor + '80';
+                                cell.style.border = '2px dashed ' + window.selectedPieceColor;
+                            }
                         }
                     }
                 }
             }
+            
+
+            highlightPotentialCompletions(completions);
         }
     }
+}
+
+function highlightPotentialCompletions(completions) {
+
+    completions.rows.forEach(row => {
+        for (let c = 0; c < board[0].length; c++) {
+            const cell = document.querySelector(`[data-row="${row}"][data-col="${c}"]`);
+            if (cell) {
+                cell.classList.add('potential-completion');
+                cell.style.boxShadow = '0 0 10px #FFD700, inset 0 0 5px #FFD700';
+            }
+        }
+    });
+    
+
+    completions.cols.forEach(col => {
+        for (let r = 0; r < board.length; r++) {
+            const cell = document.querySelector(`[data-row="${r}"][data-col="${col}"]`);
+            if (cell) {
+                cell.classList.add('potential-completion');
+                cell.style.boxShadow = '0 0 10px #FFD700, inset 0 0 5px #FFD700';
+            }
+        }
+    });
 }
 
 function clearGhostPreview() {
@@ -716,10 +827,19 @@ function clearGhostPreview() {
         cell.style.backgroundColor = '';
         cell.style.border = '';
     });
+    
+
+    document.querySelectorAll('.potential-completion').forEach(cell => {
+        cell.classList.remove('potential-completion');
+        cell.style.boxShadow = '';
+    });
 }
 
 function fadeOutBoard() {
     
+    gameOverSound.currentTime = 0;
+    gameOverSound.play();
+
     const filledCells = Array.from(document.querySelectorAll('.cell'))
         .filter(cell => cell.style.backgroundColor);
     
@@ -733,3 +853,10 @@ function fadeOutBoard() {
     });
 }
 
+function playRandomClick() {
+    if(isMuted) return;
+    
+    const sound = clickSounds[Math.floor(Math.random() * clickSounds.length)];
+    sound.currentTime = 0;
+    sound.play();
+}
