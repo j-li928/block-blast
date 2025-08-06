@@ -9,13 +9,25 @@ const clickSounds = [
     new Audio("click3.mp3")
 ]
 
+
+clickSounds.forEach(sound => {
+    sound.volume = 0.5;
+});
+
 const gameOverSound = new Audio("gameOver.mp3");
+gameOverSound.volume = 0.4;
+
+
 let isMuted = false;
+
 const soundToggle = document.getElementById("sound-toggle");
 soundToggle.addEventListener("click", () => {
   isMuted = !isMuted;
   soundToggle.textContent = isMuted ? " Sound: Off" : " Sound: On";
 });
+
+const clearLineSound = new Audio("ClearLine.mp3");
+clearLineSound.volume = 0.3;
 
 
 const shapes = [
@@ -190,14 +202,6 @@ function waitForPlayerMove() {
     });
 }
 
-function new3() {
-    let piece1 = shapes[Math.floor(Math.random() * shapes.length)];
-    let piece2 = shapes[Math.floor(Math.random() * shapes.length)];
-    let piece3 = shapes[Math.floor(Math.random() * shapes.length)];
-    
-    return [piece1, piece2, piece3]
-}
-
 function canPlaceAnywhere(board, piece) {
     for (let r = 0; r <= board.length - piece.length; r++) {
         for (let c = 0; c <= board[0].length - piece[0].length; c++) {
@@ -310,24 +314,90 @@ function clearFullLines() {
     const fullRows = findFullRows();
     const fullCols = findFullCols();
     
+
+    if (fullRows.count > 0 || fullCols.count > 0) {
+        safePlayAudio(clearLineSound);
+    }
+    
+    const cellsToAnimate = [];
+
+
+    
     fullRows.rows.forEach(row => {
         for (let c = 0; c < board[0].length; c++) {
-            board[row][c] = 0;
-            boardColors[row][c] = null;
+            cellsToAnimate.push({row, col: c, type: 'row'});
         }
     });
     
     fullCols.cols.forEach(col => {
         for (let r = 0; r < board.length; r++) {
-            board[r][col] = 0;
-            boardColors[r][col] = null;
+            cellsToAnimate.push({row: r, col, type: 'col'});
         }
     });
+    
+    if (cellsToAnimate.length > 0) {
+        animateLineClear(cellsToAnimate, () => {
+
+            fullRows.rows.forEach(row => {
+                for (let c = 0; c < board[0].length; c++) {
+                    board[row][c] = 0;
+                    boardColors[row][c] = null;
+                }
+            });
+            
+            fullCols.cols.forEach(col => {
+                for (let r = 0; r < board.length; r++) {
+                    board[r][col] = 0;
+                    boardColors[r][col] = null;
+                }
+            });
+            
+            renderBoard();
+        });
+    }
     
     const total = fullRows.count + fullCols.count;
     return total;
 }
 
+function animateLineClear(cellsToAnimate, callback) {
+
+    cellsToAnimate.forEach((cell, index) => {
+        setTimeout(() => {
+            const cellElement = document.querySelector(`[data-row="${cell.row}"][data-col="${cell.col}"]`);
+            if (cellElement) {
+                cellElement.classList.add('line-clear-flash');
+            }
+        }, index * 20); 
+    });
+    
+
+    setTimeout(() => {
+        cellsToAnimate.forEach((cell, index) => {
+            setTimeout(() => {
+                const cellElement = document.querySelector(`[data-row="${cell.row}"][data-col="${cell.col}"]`);
+                if (cellElement) {
+                    cellElement.classList.add('line-clear-scale');
+                }
+            }, index * 10);
+        });
+    }, 200);
+    
+
+    setTimeout(() => {
+        cellsToAnimate.forEach((cell, index) => {
+            setTimeout(() => {
+                const cellElement = document.querySelector(`[data-row="${cell.row}"][data-col="${cell.col}"]`);
+                if (cellElement) {
+                    cellElement.classList.add('line-clear-disappear');
+                }
+            }, index * 15);
+        });
+        
+
+        setTimeout(callback, cellsToAnimate.length * 15 + 300);
+    }, 400);
+}
 
 
 function checkGameOver(board, currentPieces) {
@@ -376,21 +446,6 @@ function placePiece(board, shape, startRow, startCol, color) {
 
 }
 
-function placePieceAtMouse(board, shape, mouseX, mouseY, grabbedTileOffsetY, grabbedTileOffsetX) {
-    const mouseBoardX = Math.floor(mouseX / TILE_SIZE);
-    const mouseBoardY = Math.floor(mouseY / TILE_SIZE);
-
-    const startCol = mouseBoardX - Math.floor(grabbedTileOffsetX / TILE_SIZE);
-    const startRow = mouseBoardY - Math.floor(grabbedTileOffsetY / TILE_SIZE);
-
-    for (let r = 0; r < shape.length; r++) {
-        for (let c = 0; c < shape[0].length; c++) {
-            if (shape[r][c] === 1) {
-                board[startRow + r][startCol + c] = 1;
-            }
-        }
-    }
-}
 
 function renderBoard() {
   boardEl.innerHTML = '';
@@ -569,18 +624,12 @@ function showGameOver() {
 }
 
 let selectedPiece = null;
-let dragOffsetX = 0;
-let dragOffsetY = 0;
 
 document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('high-score').textContent = highScore;
     runGame();
 });
-
-function addDragDropListeners() {
-
-}
 
 function calculateScore(piece, linesCleared) {
     let pieceSize = 0;
@@ -708,48 +757,6 @@ function checkPotentialLineCompletions(piece, startRow, startCol) {
     return potentialCompletions;
 }
 
-function showGhostPreview(e) {
-    clearGhostPreview();
-    
-    const boardRect = boardEl.getBoundingClientRect();
-    const mouseX = e.clientX - boardRect.left;
-    const mouseY = e.clientY - boardRect.top;
-    
-    const col = Math.floor(mouseX / TILE_SIZE);
-    const row = Math.floor(mouseY / TILE_SIZE);
-    
-    if (col >= 0 && col < 8 && row >= 0 && row < 8) {
-
-        if (canPlace(board, selectedPiece, row, col)) {
-
-            const completions = checkPotentialLineCompletions(selectedPiece, row, col);
-            
-
-            for (let r = 0; r < selectedPiece.length; r++) {
-                for (let c = 0; c < selectedPiece[0].length; c++) {
-                    if (selectedPiece[r][c] === 1) {
-                        const boardRow = row + r;
-                        const boardCol = col + c;
-                        
-                        if (boardRow >= 0 && boardRow < board.length && 
-                            boardCol >= 0 && boardCol < board[0].length) {
-                            const cell = document.querySelector(`[data-row="${boardRow}"][data-col="${boardCol}"]`);
-                            if (cell && board[boardRow][boardCol] === 0) {
-                                cell.classList.add('ghost-preview');
-                                cell.style.backgroundColor = window.selectedPieceColor + '80';
-                                cell.style.border = '2px dashed ' + window.selectedPieceColor;
-                            }
-                        }
-                    }
-                }
-            }
-            
-
-            highlightPotentialCompletions(completions);
-        }
-    }
-}
-
 function showGhostPreviewFromPiecePosition(pieceElement) {
     clearGhostPreview();
     
@@ -837,18 +844,33 @@ function clearGhostPreview() {
 
 function fadeOutBoard() {
     
-    gameOverSound.currentTime = 0;
-    gameOverSound.play();
+    safePlayAudio(gameOverSound);
 
-    const filledCells = Array.from(document.querySelectorAll('.cell'))
-        .filter(cell => cell.style.backgroundColor);
+
+    document.querySelectorAll('.line-clear-flash, .line-clear-scale, .line-clear-disappear, .potential-completion, .ghost-preview').forEach(cell => {
+        cell.classList.remove('line-clear-flash', 'line-clear-scale', 'line-clear-disappear', 'potential-completion', 'ghost-preview');
+        cell.style.boxShadow = '';
+        cell.style.backgroundColor = '';
+        cell.style.border = '';
+    });
+
+
+    const filledCells = [];
+    for (let r = 0; r < board.length; r++) {
+        for (let c = 0; c < board[0].length; c++) {
+            if (board[r][c] === 1) {
+                const cell = document.querySelector(`[data-row="${r}"][data-col="${c}"]`);
+                if (cell) {
+                    filledCells.push(cell);
+                }
+            }
+        }
+    }
     
-    
+
     filledCells.forEach((cell, index) => {
-
         setTimeout(() => {
             cell.classList.add('dissolve');
-
         }, index * 50); 
     });
 }
@@ -858,5 +880,17 @@ function playRandomClick() {
     
     const sound = clickSounds[Math.floor(Math.random() * clickSounds.length)];
     sound.currentTime = 0;
-    sound.play();
+    sound.play().catch(error => {
+        console.log('Audio play prevented by browser autoplay policy');
+    });
+}
+
+function safePlayAudio(audio) {
+    if (isMuted) return;
+    
+    audio.currentTime = 0;
+    audio.play().catch(error => {
+
+        console.log('Audio play prevented by browser autoplay policy');
+    });
 }

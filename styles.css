@@ -57,13 +57,75 @@ body {
     }
 }
 
-.cell.dissolve {
-    animation: dissolve 1.2s ease-out forwards;
+
+.cell.line-clear-flash {
+    animation: line-clear-flash 0.2s ease-out;
 }
 
-.cell.fade-out {
-    opacity: 0;
-    transition: opacity 0.8s ease-out;
+.cell.line-clear-scale {
+    animation: line-clear-scale 0.3s ease-out;
+}
+
+.cell.line-clear-disappear {
+    animation: line-clear-disappear 0.4s ease-out forwards;
+}
+
+@keyframes line-clear-flash {
+    0% {
+        filter: brightness(1);
+    }
+    50% {
+        filter: brightness(2);
+        box-shadow: 0 0 20px #FFD700, inset 0 0 10px #FFD700;
+    }
+    100% {
+        filter: brightness(1.5);
+    }
+}
+
+@keyframes line-clear-scale {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.2);
+        box-shadow: 0 0 15px #FF6B6B, inset 0 0 8px #FF6B6B;
+    }
+    100% {
+        transform: scale(1.1);
+    }
+}
+
+@keyframes line-clear-disappear {
+    0% {
+        transform: scale(1.1);
+        opacity: 1;
+        filter: brightness(1.5);
+    }
+    25% {
+        transform: scale(1.3) rotate(5deg);
+        opacity: 0.8;
+        filter: brightness(2);
+    }
+    50% {
+        transform: scale(0.8) rotate(-5deg);
+        opacity: 0.6;
+        filter: brightness(1.8);
+    }
+    75% {
+        transform: scale(0.4) rotate(10deg);
+        opacity: 0.3;
+        filter: brightness(1.2);
+    }
+    100% {
+        transform: scale(0) rotate(15deg);
+        opacity: 0;
+        filter: brightness(0.5);
+    }
+}
+
+.cell.dissolve {
+    animation: dissolve 1.0s ease-out forwards;
 }
 
 @keyframes dissolve {
@@ -141,15 +203,6 @@ body {
     transition: transform 0.3s ease;
 }
 
-.piece.selected {
-    border-color: #2196f3;
-    border-width: 3px;
-    border-style: solid;
-    background: rgba(33, 150, 243, 0.1);
-    transform: scale(1.0);
-    transition: all 0.2s ease;
-}
-
 .piece.dragging {
     filter: brightness(1.1);
     transform: scale(1.0);
@@ -164,10 +217,6 @@ body {
     margin: 1px;
     border-radius: 4px;
     transition: opacity 0.5s ease;
-}
-
-.block.fade-out {
-    opacity: 0;
 }
 
 #score {
