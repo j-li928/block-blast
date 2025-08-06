@@ -19,6 +19,7 @@ gameOverSound.volume = 0.4;
 
 
 let isMuted = false;
+let userHasInteracted = false;
 
 const soundToggle = document.getElementById("sound-toggle");
 soundToggle.addEventListener("click", () => {
@@ -504,6 +505,7 @@ function renderPieces(pieces) {
 
         pieceElement.addEventListener('mousedown', (e) => {
             e.preventDefault();
+            userHasInteracted = true;
             selectedPiece = piece;
             window.selectedPieceColor = pieceColor;
 
@@ -886,11 +888,13 @@ function playRandomClick() {
 }
 
 function safePlayAudio(audio) {
-    if (isMuted) return;
+    if (isMuted || !userHasInteracted) return;
     
+    console.log('Attempting to play audio:', audio.src);
     audio.currentTime = 0;
     audio.play().catch(error => {
-
-        console.log('Audio play prevented by browser autoplay policy');
+        console.log('Audio play failed:', error);
+        console.log('Audio src:', audio.src);
+        console.log('Audio readyState:', audio.readyState);
     });
 }
