@@ -16,3 +16,5 @@ A browser-based logic puzzle game designed to improve problem-solving skills and
 - Built with vanilla HTML, CSS, and JavaScript
 - No external dependencies or frameworks
 - Optimized for educational environments
+
+[![Athena Award Badge](https://img.shields.io/endpoint?url=https%3A%2F%2Faward.athena.hackclub.com%2Fapi%2Fbadge)](https://award.athena.hackclub.com?utm_source=readme)
