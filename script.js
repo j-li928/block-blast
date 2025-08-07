@@ -143,8 +143,8 @@ function runGame() {
             window.selectedPieceColor = null;
             clearGhostPreview();
             
-            setTimeout(() => {
-                let totalCleared = clearFullLines();
+            setTimeout(async () => {
+                let totalCleared = await clearFullLines();
                 let startScore = score;
                 let scoreIncrement = calculateScore(piece, totalCleared);
                 score += scoreIncrement;
@@ -335,29 +335,33 @@ function clearFullLines() {
         }
     });
     
-    if (cellsToAnimate.length > 0) {
-        animateLineClear(cellsToAnimate, () => {
-
-            fullRows.rows.forEach(row => {
-                for (let c = 0; c < board[0].length; c++) {
-                    board[row][c] = 0;
-                    boardColors[row][c] = null;
-                }
-            });
-            
-            fullCols.cols.forEach(col => {
-                for (let r = 0; r < board.length; r++) {
-                    board[r][col] = 0;
-                    boardColors[r][col] = null;
-                }
-            });
-            
-            renderBoard();
-        });
-    }
-    
     const total = fullRows.count + fullCols.count;
-    return total;
+    
+    if (cellsToAnimate.length > 0) {
+        return new Promise((resolve) => {
+            animateLineClear(cellsToAnimate, () => {
+
+                fullRows.rows.forEach(row => {
+                    for (let c = 0; c < board[0].length; c++) {
+                        board[row][c] = 0;
+                        boardColors[row][c] = null;
+                    }
+                });
+                
+                fullCols.cols.forEach(col => {
+                    for (let r = 0; r < board.length; r++) {
+                        board[r][col] = 0;
+                        boardColors[r][col] = null;
+                    }
+                });
+                
+                renderBoard();
+                resolve(total);
+            });
+        });
+    } else {
+        return Promise.resolve(total);
+    }
 }
 
 function animateLineClear(cellsToAnimate, callback) {
