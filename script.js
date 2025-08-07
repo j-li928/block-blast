@@ -124,7 +124,6 @@ function runGame() {
  
     renderBoard();
 
-
     if (checkGameOver(board, currentPieces)) {
         gameRunning = false;
         showGameOver();
@@ -158,20 +157,20 @@ function runGame() {
                 renderBoard();
                 
                 
-                currentPieces = currentPieces.filter(p => p !== piece);
+
+                const pieceIndex = currentPieces.indexOf(piece);
+                if (pieceIndex !== -1) {
+                    currentPieces.splice(pieceIndex, 1);
+                }
                 
-                
+
                 const pieceElements = document.querySelectorAll('.piece');
-                for (let i = 0; i < pieceElements.length; i++) {
-                    const element = pieceElements[i];
-                    if (element.dataset.piece === JSON.stringify(piece)) {
-                        element.remove();
-                        break;
-                    }
+                if (pieceElements[pieceIndex]) {
+                    pieceElements[pieceIndex].remove();
                 }
                 
                 
-                if (currentPieces.length === 0) {
+                if (currentPieces.length < 1) {
                     
                     currentPieces = generatePlaceablePieces();
                     renderPieces(currentPieces);
