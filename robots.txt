@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+# Educational content
+Sitemap: https://yourdomain.com/sitemap.xml
+
+# Educational game content
+Disallow: /admin/
+Disallow: /private/ 
